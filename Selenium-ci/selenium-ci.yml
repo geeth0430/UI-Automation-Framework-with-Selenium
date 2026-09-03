@@ -1,0 +1,63 @@
+name: Selenium POM Framework CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  ui-tests:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chrome, firefox]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 11
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '11'
+          cache: 'maven'
+
+      - name: Run UI tests headlessly (${{ matrix.browser }})
+        env:
+          BROWSER: ${{ matrix.browser }}
+          HEADLESS: "true"
+        run: |
+          mvn clean test \
+            -Dbrowser=${{ matrix.browser }} \
+            -Dheadless=true \
+            -Dsurefire.failIfNoSpecifiedTests=false
+
+      - name: Upload ExtentReports HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: extent-report-${{ matrix.browser }}
+          path: test-output/ExtentReport/*.html
+          retention-days: 14
+
+      - name: Upload failure screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: failure-screenshots-${{ matrix.browser }}
+          path: screenshots/*.png
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Upload Surefire test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-results-${{ matrix.browser }}
+          path: target/surefire-reports/
+          retention-days: 14
